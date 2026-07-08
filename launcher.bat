@@ -1,171 +1,89 @@
 @echo off
-setlocal enabledelayedexpansion
-title 1D Minecraft Sword 1.0
+title Minecraft 1.1 Go compiler loader
 color 0A
-mode con: cols=65 lines=15
+mode con: cols=60 lines=15
 
-:: --- ИНИЦИАЛИЗАЦИЯ ИГРЫ ---
-set "WORLD_SIZE=40"
-set "PLAYER_POS=12"
-set "INVENTORY= "
-set "HAS_SWORD=0"
-
-:: Спавн Зомби (Z) на 25-м блоке ландшафта
-set "ZOMBIE_POS=25"
-set "ZOMBIE_HP=3"
-set "ZOMBIE_ALIVE=1"
-
-:: Генерация слоев одномерного мира
-:: 0..3 - Камень (#), 4..7 - Земля (.), остальные - Воздух ( )
-for /l %%i in (0,1,%WORLD_SIZE%) do (
-    if %%i equ 0 ( set "WORLD_%%i=X" ) else (
-    if %%i equ %WORLD_SIZE% ( set "WORLD_%%i=X" ) else (
-    if %%i lss 4 ( set "WORLD_%%i=#" ) else (
-    if %%i lss 8 ( set "WORLD_%%i=." ) else (
-    set "WORLD_%%i= "
-    ))))
+:: Проверяем, установлен ли Go на компьютере
+where go >nul 2>nul
+if %errorlevel% neq 0 (
+    color 0C
+    echo [ОШИБКА] Компилятор Go не найден в системе!
+    echo Пожалуйста, установите Go с официального сайта (golang.org).
+    pause
+    exit
 )
 
-:: --- ОСНОВНОЙ ИГРОВОЙ ЦИКЛ ---
-:GAME_LOOP
-:: 1. Физика гравитации (игрок падает, если под ногами воздух)
-:GRAVITY_LOOP
-set /a "UNDER_PLAYER=PLAYER_POS - 1"
-if "!WORLD_%UNDER_PLAYER%!" equ " " (
-    set /a "PLAYER_POS-=1"
-    goto GRAVITY_LOOP
+:: Записываем исходный код на Go во временный файл
+echo package main > temp.go
+echo import ( >> temp.go
+echo 	"fmt" >> temp.go
+echo 	"os" >> temp.go
+echo 	"os/exec" >> temp.go
+echo 	"runtime" >> temp.go
+echo 	"strings" >> temp.go
+echo ) >> temp.go
+echo func main() { >> temp.go
+echo 	size := 40; playerPos := 12; var inventory rune = ' ' >> temp.go
+echo 	world := make([]rune, size) >> temp.go
+echo 	for i := 0; i ^< size; i++ { >> temp.go
+echo 		if i == 0 ^|^| i == size-1 { world[i] = 'X' } else if i ^< 4 { world[i] = '#' } else if i ^< 8 { world[i] = '.' } else { world[i] = ' ' } >> temp.go
+echo 	} >> temp.go
+echo 	for { >> temp.go
+echo 		for playerPos ^> 0 ^&& world[playerPos-1] == ' ' { playerPos-- } >> temp.go
+echo 		var cmd *exec.Cmd >> temp.go
+echo 		if runtime.GOOS == "windows" { cmd = exec.Command("cmd", "/c", "cls") } else { cmd = exec.Command("clear") } >> temp.go
+echo 		cmd.Stdout = os.Stdout; cmd.Run() >> temp.go
+echo 		fmt.Println("=== MINECRAFT 1D RUN v1.1 (GO ENGINE) ===") >> temp.go
+echo 		fmt.Println() >> temp.go
+echo 		for i, block := range world { >> temp.go
+echo 			if i == playerPos { fmt.Print("P") } else { fmt.Printf("%%c", block) } >> temp.go
+echo 		} >> temp.go
+echo 		fmt.Println() >> temp.go
+echo 		invStr := "Пусто" >> temp.go
+echo 		if inventory == '.' { invStr = "Земля" } else if inventory == '#' { invStr = "Камень" } >> temp.go
+echo 		fmt.Printf("\n[Инвентарь]: %%s\n", invStr) >> temp.go
+echo 		fmt.Println("[Управление]: A (Влево) | D (Вправо) | Q (Копать) | E (Строить) | X (Выход)") >> temp.go
+echo 		fmt.Print("Действие: ") >> temp.go
+echo 		var input string >> temp.go
+echo 		fmt.Scanln(&input) >> temp.go
+echo 		if len(input) == 0 { continue } >> temp.go
+echo 		action := strings.ToLower(input) >> temp.go
+echo 		if action == "x" { break } >> temp.go
+echo 		left := playerPos - 1 >> temp.go
+echo 		right := playerPos + 1 >> temp.go
+echo 		if action == "a" ^&& playerPos ^> 0 ^&& world[left] == ' ' { playerPos-- } >> temp.go
+echo 		if action == "d" ^&& playerPos ^< size-1 ^&& world[right] == ' ' { playerPos++ } >> temp.go
+echo 		if action == "q" ^&& playerPos ^> 0 { >> temp.go
+echo 			target := world[left] >> temp.go
+echo 			if target != ' ' ^&& target != 'X' ^&& inventory == ' ' { >> temp.go
+echo 				inventory = target; world[left] = ' ' >> temp.go
+echo 			} >> temp.go
+echo 		} >> temp.go
+echo 		if action == "e" { >> temp.go
+echo 			if inventory != ' ' ^&& playerPos ^> 1 ^&& world[left] == ' ' { >> temp.go
+echo 				world[left] = inventory; inventory = ' '; playerPos++ >> temp.go
+echo 			} >> temp.go
+echo 		} >> temp.go
+echo 	} >> temp.go
+echo } >> temp.go
+
+echo [УСПЕХ] Исходный код подготовлен.
+echo Компиляция бинарного файла через Go...
+go build -o minecraft_1_1.exe temp.go
+del temp.go
+
+if not exist "minecraft_1_1.exe" (
+    color 0C
+    echo [ОШИБКА] Не удалось скомпилировать игровой EXE файл.
+    pause
+    exit
 )
 
-:: 2. Физика зомби (падает, если под ним воздух)
-:ZOMBIE_GRAVITY
-if %ZOMBIE_ALIVE% equ 1 (
-    set /a "UNDER_ZOMBIE=ZOMBIE_POS - 1"
-    if "!WORLD_%UNDER_ZOMBIE%!" equ " " (
-        set /a "ZOMBIE_POS-=1"
-        goto ZOMBIE_GRAVITY
-    )
-)
+echo [УСПЕХ] Игра успешно скомпилирована в чистый машинный код!
+echo Запуск...
+timeout /t 1 >nul
+minecraft_1_1.exe
 
-:: 3. Отрисовка кадра
-cls
-echo =============================================================
-echo               1D MINECRAFT SWORD v1.0 (PURE BATCH)          
-echo =============================================================
 echo.
-
-:: Сборка строки мира для вывода
-set "RENDER_LINE="
-for /l %%i in (0,1,%WORLD_SIZE%) do (
-    set "CHAR=!WORLD_%%i!"
-    if %%i equ %PLAYER_POS% (
-        set "CHAR=P"
-    ) else (
-        if %ZOMBIE_ALIVE% equ 1 (
-            if %%i equ %ZOMBIE_POS% set "CHAR=Z"
-        )
-    )
-    set "RENDER_LINE=!RENDER_LINE!!CHAR!"
-)
-echo %RENDER_LINE%
-echo.
-
-:: Вывод интерфейса
-if %HAS_SWORD% equ 1 ( set "SWORD_STATUS=Железный Меч" ) else ( set "SWORD_STATUS=Нет" )
-if "%INVENTORY%" equ " " ( set "INV_STATUS=Пусто" ) else ( set "INV_STATUS=%INVENTORY%" )
-
-echo [Инвентарь]: %INV_STATUS%    [Оружие]: %SWORD_STATUS%
-if %ZOMBIE_ALIVE% equ 1 ( echo [Враг]: Зомби (HP: %ZOMBIE_HP%^) на позиции %ZOMBIE_POS% ) else ( echo [Враг]: Зомби повержен! )
-echo -------------------------------------------------------------
-echo [Управление]: A (Влево) ^| D (Вправо) ^| Q (Копать) ^| E (Строить)
-echo               F (Ударить мечом) ^| R (Скрафтить меч) ^| X (Выход)
-echo -------------------------------------------------------------
-
-:: 4. Обработка ввода игрока
-set "INPUT="
-set /p "INPUT=Действие: "
-if /i "%INPUT%" equ "x" goto END_GAME
-
-:: Поведение Зомби (шаг навстречу игроку после каждого действия)
-if %ZOMBIE_ALIVE% equ 1 (
-    set /a "Z_NEXT_RIGHT=ZOMBIE_POS + 1"
-    set /a "Z_NEXT_LEFT=ZOMBIE_POS - 1"
-    if %ZOMBIE_POS% gtr %PLAYER_POS% (
-        if "!WORLD_%Z_NEXT_LEFT%!" equ " " set /a "ZOMBIE_POS-=1"
-    ) else (
-        if %ZOMBIE_POS% lss %PLAYER_POS% (
-            if "!WORLD_%Z_NEXT_RIGHT%!" equ " " set /a "ZOMBIE_POS+=1"
-        )
-    )
-)
-
-:: Проверка гибели от Зомби (если зашел на клетку игрока)
-if %ZOMBIE_ALIVE% equ 1 (
-    if %PLAYER_POS% equ %ZOMBIE_POS% (
-        cls
-        echo =============================================================
-        echo                       ИГРА ОКОНЧЕНА                          
-        echo =============================================================
-        echo.
-        echo           Вас съел Зомби! Вы возродились в меню.
-        echo.
-        pause
-        goto END_GAME
-    )
-)
-
-:: Движение
-set /a "NEXT_LEFT=PLAYER_POS - 1"
-set /a "NEXT_RIGHT=PLAYER_POS + 1"
-if /i "%INPUT%" equ "a" if "!WORLD_%NEXT_LEFT%!" equ " " set /a "PLAYER_POS-=1"
-if /i "%INPUT%" equ "d" if "!WORLD_%NEXT_RIGHT%!" equ " " set /a "PLAYER_POS+=1"
-
-:: Копать блок под собой
-if /i "%INPUT%" equ "q" (
-    if "!WORLD_%NEXT_LEFT%!" neq " " if "!WORLD_%NEXT_LEFT%!" neq "X" (
-        if "%INVENTORY%" equ " " (
-            set "INVENTORY=!WORLD_%NEXT_LEFT%!"
-            set "WORLD_%NEXT_LEFT%= "
-        )
-    )
-)
-
-:: Строить блок под собой
-if /i "%INPUT%" equ "e" (
-    if "%INVENTORY%" neq " " if "!WORLD_%NEXT_LEFT%!" equ " " (
-        set "WORLD_%NEXT_LEFT%=%INVENTORY%"
-        set "INVENTORY= "
-        set /a "PLAYER_POS+=1"
-    )
-)
-
-:: Крафт меча (R) - требует 1 камень (#) в инвентаре
-if /i "%INPUT%" equ "r" (
-    if "%INVENTORY%" equ "#" (
-        set "HAS_SWORD=1"
-        set "INVENTORY= "
-        echo Вы скрафтили Меч!
-        timeout /t 1 >nul
-    )
-)
-
-:: Атака мечом (F) - бьет по соседним клеткам, если есть меч
-if /i "%INPUT%" equ "f" (
-    if %HAS_SWORD% equ 1 (
-        set /a "DIST=PLAYER_POS - ZOMBIE_POS"
-        if !DIST! lss 0 set /a "DIST=-DIST"
-        if !DIST! lss 3 (
-            if %ZOMBIE_ALIVE% equ 1 (
-                set /a "ZOMBIE_HP-=1"
-                if !ZOMBIE_HP! lss 1 set "ZOMBIE_ALIVE=0"
-            )
-        )
-    )
-)
-
-goto GAME_LOOP
-
-:END_GAME
-echo.
-echo Спасибо за игру в 1D Minecraft Sword 1.0!
+echo Спасибо за игру! Скрипт завершен.
 pause
-
