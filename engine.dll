@@ -1,0 +1,80 @@
+#include <iostream>
+#include <vector>
+
+#define GAME_API __declspec(dllexport)
+
+enum BlockType { AIR = 0, DIRT = 1, STONE = 2, BEDROCK = 3 };
+
+// Глобальное состояние мира (скрыто внутри DLL)
+std::vector<int> worldMap;
+int currentInventory = AIR;
+
+char getBlockChar(int type) {
+    if (type == DIRT) return '.';
+    if (type == STONE) return '#';
+    if (type == BEDROCK) return 'X';
+    return ' ';
+}
+
+extern "C" {
+    // Инициализация мира
+    GAME_API void InitWorld(int size) {
+        worldMap.resize(size, AIR);
+        for (int i = 0; i < size; i++) {
+            if (i == 0 || i == size - 1) worldMap[i] = BEDROCK;
+            else if (i < 4)             worldMap[i] = STONE;
+            else if (i < 8)             worldMap[i] = DIRT;
+            else                        worldMap[i] = AIR;
+        }
+    }
+
+    // Проверка и применение гравитации
+    GAME_API int ApplyGravity(int playerPos) {
+        while (playerPos > 0 && worldMap[playerPos - 1] == AIR) {
+            playerPos--;
+        }
+        return playerPos;
+    }
+
+    // Отрисовка кадра
+    GAME_API void RenderWorld(int size, int playerPos) {
+        std::system("cls");
+        std::cout << "=== 1D MINECRAFT (EXE + DLL) ===\n\n";
+
+        for (int i = 0; i < size; i++) {
+            if (i == playerPos) std::cout << "P";
+            else std::cout << getBlockChar(worldMap[i]);
+        }
+        std::cout << "\n\n[Инвентарь]: ";
+        if (currentInventory == DIRT) std::cout << "Земля";
+        else if (currentInventory == STONE) std::cout << "Камень";
+        else std::cout << "Пусто";
+        
+        std::cout << "\n[Управление]: A (Влево) | D (Вправо) | Q (Копать) | E (Строить) | X (Выход)\nВвод: ";
+    }
+
+    // Логика перемещения и взаимодействия
+    GAME_API int ProcessAction(char action, int playerPos, int size) {
+        if (action == 'a' && playerPos > 0 && worldMap[playerPos - 1] == AIR) {
+            playerPos--;
+        }
+        else if (action == 'd' && playerPos < size - 1 && worldMap[playerPos + 1] == AIR) {
+            playerPos++;
+        }
+        else if (action == 'q' && playerPos > 0) {
+            int target = worldMap[playerPos - 1];
+            if (target != AIR && target != BEDROCK && currentInventory == AIR) {
+                currentInventory = target;
+                worldMap[playerPos - 1] = AIR;
+            }
+        }
+        else if (action == 'e') {
+            if (currentInventory != AIR && playerPos > 1 && worldMap[playerPos - 1] == AIR) {
+                worldMap[playerPos - 1] = currentInventory;
+                currentInventory = AIR;
+                playerPos++;
+            }
+        }
+        return playerPos;
+    }
+}
